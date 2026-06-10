@@ -1,26 +1,90 @@
 @import "tailwindcss";
 
+/*
+ * Restaurant branding is driven by CSS custom properties so the colours can be
+ * swapped at runtime from the `restaurant_settings` table (see
+ * <BrandProvider>). The defaults below are a safe fallback used before settings
+ * load and during SSR.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --brand-primary: #d97706; /* amber-600 */
+  --brand-secondary: #7c2d12; /* orange-900 */
+  --brand-primary-contrast: #ffffff;
+
+  --background: #f9fafb; /* gray-50 */
+  --foreground: #111827; /* gray-900 */
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+
+  /* Expose brand colours to Tailwind utilities, e.g. bg-brand text-brand */
+  --color-brand: var(--brand-primary);
+  --color-brand-secondary: var(--brand-secondary);
+  --color-brand-contrast: var(--brand-primary-contrast);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html,
+body {
+  height: 100%;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), system-ui, -apple-system, "Segoe UI", Roboto,
+    "Noto Sans", "Noto Sans Devanagari", "Noto Sans Gurmukhi", sans-serif;
+  /* Better default for one-handed mobile use: no accidental text selection on tap-and-hold of buttons */
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Respect safe areas on notched Android/iOS devices when installed as a PWA */
+@supports (padding: max(0px)) {
+  .safe-bottom {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+  .safe-top {
+    padding-top: max(0px, env(safe-area-inset-top));
+  }
+}
+
+/* Hide scrollbars on horizontal category strips while keeping scroll */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slide-up {
+  from {
+    transform: translateY(16px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.18s ease-out;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }

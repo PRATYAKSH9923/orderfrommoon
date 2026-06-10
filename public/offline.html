@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="hi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ऑफ़लाइन (ਆਫ਼ਲਾਈਨ)</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        margin: 0;
+        background: linear-gradient(135deg, #d9770620 0%, #5b3a1a20 100%);
+      }
+      .container {
+        text-align: center;
+        padding: 20px;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        max-width: 400px;
+      }
+      h1 {
+        color: #1f2937;
+        margin-bottom: 8px;
+      }
+      p {
+        color: #6b7280;
+        margin: 12px 0;
+      }
+      .emoji {
+        font-size: 48px;
+        margin-bottom: 16px;
+      }
+      button {
+        background: #F59E0B;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 16px;
+        font-weight: 600;
+        margin-top: 16px;
+      }
+      button:hover {
+        background: #d97706;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="emoji">📡</div>
+      <h1>ऑफ़लाइन हैं (ਆਫ਼ਲਾਈਨ ਹੋ)</h1>
+      <p>कृपया अपने इंटरनेट कनेक्शन की जांच करें।</p>
+      <p>(ਕਿਰਪਾ ਆਪਣੇ ਇੰਟਰਨੈਟ ਕਨੈਕਸ਼ਨ ਦੀ ਜਾਂਚ ਕਰੋ।)</p>
+      <button onclick="window.location.reload()">फिर से कोशिश करें (ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ)</button>
+    </div>
+  </body>
+</html>

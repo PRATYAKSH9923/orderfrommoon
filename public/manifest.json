@@ -1,0 +1,66 @@
+{
+  "name": "The Belgian Waffle Xpress - Order Online",
+  "short_name": "Waffle Xpress",
+  "description": "Mobile-first restaurant ordering app",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#ffffff",
+  "theme_color": "#F59E0B",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "categories": ["food"],
+  "shortcuts": [
+    {
+      "name": "नया ऑर्डर (ਨਵਾਂ ਆਰਡਰ)",
+      "short_name": "Order",
+      "description": "Place a new order",
+      "url": "/consumer",
+      "icons": [
+        {
+          "src": "/icon-96.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "व्यवस्थक (ਪ੍ਰਬੰਧਕ)",
+      "short_name": "Admin",
+      "description": "Admin dashboard",
+      "url": "/admin",
+      "icons": [
+        {
+          "src": "/icon-96.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    }
+  ]
+}
