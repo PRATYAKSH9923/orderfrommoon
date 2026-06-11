@@ -6,6 +6,8 @@ import { LogOut, Search, X, RefreshCw } from "lucide-react";
 import { OrderStatus, OrderWithItems } from "@/types";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { isToday } from "@/lib/utils";
+import { useLang } from "@/components/LanguageProvider";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { Input } from "@/components/ui/Input";
 import { AdminOrderCard } from "./AdminOrderCard";
 
@@ -15,18 +17,21 @@ interface AdminDashboardProps {
   restaurantName: string;
 }
 
-type Tab = "active" | "completed";
-
-const ACTIVE_STATUSES: OrderStatus[] = ["NEW", "ACCEPTED", "PREPARING"];
+// Parent tabs and the Active sub-tabs.
+// Flow: Requested (NEW) → To-do (ACCEPTED) → Preparing (PREPARING) → Done (DONE)
+type ParentTab = "requested" | "active" | "done";
+type ActiveSub = "todo" | "preparing";
 
 export function AdminDashboard({
   initialOrders,
   currency,
   restaurantName,
 }: AdminDashboardProps) {
+  const { t } = useLang();
   const router = useRouter();
   const [orders, setOrders] = useState<OrderWithItems[]>(initialOrders);
-  const [tab, setTab] = useState<Tab>("active");
+  const [tab, setTab] = useState<ParentTab>("requested");
+  const [sub, setSub] = useState<ActiveSub>("todo");
   const [query, setQuery] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [hasNewSinceView, setHasNewSinceView] = useState(false);
@@ -64,8 +69,8 @@ export function AdminDashboard({
           setOrders((prev) =>
             prev.some((o) => o.id === full.id) ? prev : [full, ...prev]
           );
-          // Show the "new orders" dot when not already looking at the active tab.
-          if (tabRef.current !== "active") setHasNewSinceView(true);
+          // Flag new requests when not currently viewing the Requested tab.
+          if (tabRef.current !== "requested") setHasNewSinceView(true);
         }
       )
       .on(
@@ -85,22 +90,36 @@ export function AdminDashboard({
     };
   }, []);
 
-  const selectTab = (next: Tab) => {
+  const selectTab = (next: ParentTab) => {
     setTab(next);
-    if (next === "active") setHasNewSinceView(false);
+    if (next === "requested") setHasNewSinceView(false);
   };
 
-  // ---- Derived lists -------------------------------------------------------
+  // ---- Counts --------------------------------------------------------------
   const newCount = orders.filter((o) => o.status === "NEW").length;
+  const todoCount = orders.filter((o) => o.status === "ACCEPTED").length;
+  const preparingCount = orders.filter((o) => o.status === "PREPARING").length;
+  const activeCount = todoCount + preparingCount;
+
+  // The status shown by the current (parent + sub) selection.
+  const currentStatus: OrderStatus =
+    tab === "requested"
+      ? "NEW"
+      : tab === "done"
+        ? "DONE"
+        : sub === "todo"
+          ? "ACCEPTED"
+          : "PREPARING";
 
   const visibleOrders = useMemo(() => {
     const q = query.trim().replace(/^#/, "").toLowerCase();
 
-    let list =
-      tab === "active"
-        ? orders.filter((o) => ACTIVE_STATUSES.includes(o.status))
-        : // Completed tab shows today's DONE orders (today's order history).
-          orders.filter((o) => o.status === "DONE" && isToday(o.created_at));
+    let list = orders.filter((o) => {
+      if (o.status !== currentStatus) return false;
+      // Done = today's completed orders only.
+      if (currentStatus === "DONE") return isToday(o.created_at);
+      return true;
+    });
 
     if (q) {
       list = list.filter((o) =>
@@ -108,18 +127,26 @@ export function AdminDashboard({
       );
     }
 
-    // Active: oldest first (FIFO for the kitchen). Completed: newest first.
+    // Done: newest first. Everything else: oldest first (FIFO for the kitchen).
     return [...list].sort((a, b) =>
-      tab === "active"
-        ? a.created_at.localeCompare(b.created_at)
-        : b.created_at.localeCompare(a.created_at)
+      currentStatus === "DONE"
+        ? b.created_at.localeCompare(a.created_at)
+        : a.created_at.localeCompare(b.created_at)
     );
-  }, [orders, tab, query]);
+  }, [orders, currentStatus, query]);
+
+  const emptyKey =
+    currentStatus === "NEW"
+      ? "noRequested"
+      : currentStatus === "ACCEPTED"
+        ? "noTodo"
+        : currentStatus === "PREPARING"
+          ? "noPreparing"
+          : "noDone";
 
   // ---- Actions -------------------------------------------------------------
   const advance = async (id: string, next: OrderStatus) => {
     setBusyId(id);
-    // Optimistic update.
     setOrders((prev) =>
       prev.map((o) => (o.id === id ? { ...o, status: next } : o))
     );
@@ -131,7 +158,6 @@ export function AdminDashboard({
       });
       if (!res.ok) throw new Error("Failed");
     } catch {
-      // Re-fetch on failure to resync.
       router.refresh();
     } finally {
       setBusyId(null);
@@ -146,17 +172,20 @@ export function AdminDashboard({
 
   return (
     <div className="flex min-h-dvh flex-col bg-gray-50">
-      <header className="sticky top-0 z-20 bg-brand-secondary text-white shadow-md safe-top">
+      <header className="safe-top sticky top-0 z-20 bg-brand-secondary text-white shadow-md">
         <div className="flex items-center justify-between px-4 py-3">
-          <div>
-            <h1 className="text-lg font-bold leading-tight">{restaurantName}</h1>
-            <p className="text-xs text-white/80">Admin Dashboard</p>
+          <div className="min-w-0">
+            <h1 className="truncate text-lg font-bold leading-tight">
+              {restaurantName}
+            </h1>
+            <p className="text-xs text-white/80">{t("dashboard")}</p>
           </div>
           <div className="flex items-center gap-1">
+            <LanguageSwitcher variant="glass" />
             <button
               onClick={() => router.refresh()}
               aria-label="Refresh"
-              className="p-2 rounded-full active:bg-white/20"
+              className="rounded-full p-2 active:bg-white/20"
             >
               <RefreshCw className="size-5" />
             </button>
@@ -170,22 +199,46 @@ export function AdminDashboard({
           </div>
         </div>
 
-        {/* Tabs */}
+        {/* Parent tabs */}
         <div className="flex px-2">
+          <TabButton
+            active={tab === "requested"}
+            onClick={() => selectTab("requested")}
+            label={t("tabRequested")}
+            badge={newCount > 0 ? newCount : undefined}
+          />
           <TabButton
             active={tab === "active"}
             onClick={() => selectTab("active")}
-            label="Active Orders"
-            badge={newCount > 0 ? newCount : undefined}
-            dot={tab !== "active" && hasNewSinceView}
+            label={t("tabActive")}
+            badge={activeCount > 0 ? activeCount : undefined}
+            dot={tab !== "requested" && hasNewSinceView}
           />
           <TabButton
-            active={tab === "completed"}
-            onClick={() => selectTab("completed")}
-            label="Completed (Today)"
+            active={tab === "done"}
+            onClick={() => selectTab("done")}
+            label={t("tabDone")}
           />
         </div>
       </header>
+
+      {/* Active sub-tabs */}
+      {tab === "active" && (
+        <div className="flex gap-2 px-4 pt-3">
+          <SubTab
+            active={sub === "todo"}
+            onClick={() => setSub("todo")}
+            label={t("subTodo")}
+            count={todoCount}
+          />
+          <SubTab
+            active={sub === "preparing"}
+            onClick={() => setSub("preparing")}
+            label={t("subPreparing")}
+            count={preparingCount}
+          />
+        </div>
+      )}
 
       {/* Search by order id */}
       <div className="p-4 pb-2">
@@ -193,7 +246,7 @@ export function AdminDashboard({
           <Search className="pointer-events-none absolute left-3 top-1/2 size-5 -translate-y-1/2 text-gray-400" />
           <Input
             inputMode="numeric"
-            placeholder="Search order number… e.g. 101"
+            placeholder={t("searchOrder")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="pl-10 pr-10"
@@ -214,11 +267,7 @@ export function AdminDashboard({
         {visibleOrders.length === 0 ? (
           <div className="py-20 text-center text-gray-400">
             <p className="text-4xl">🧇</p>
-            <p className="mt-3 font-medium">
-              {tab === "active"
-                ? "No active orders"
-                : "No completed orders today"}
-            </p>
+            <p className="mt-3 font-medium">{t(emptyKey)}</p>
           </div>
         ) : (
           visibleOrders.map((order) => (
@@ -252,10 +301,8 @@ function TabButton({
   return (
     <button
       onClick={onClick}
-      className={`relative flex-1 border-b-2 px-3 py-2.5 text-sm font-semibold transition-colors ${
-        active
-          ? "border-white text-white"
-          : "border-transparent text-white/70"
+      className={`relative flex-1 border-b-2 px-2 py-2.5 text-sm font-semibold transition-colors ${
+        active ? "border-white text-white" : "border-transparent text-white/70"
       }`}
     >
       {label}
@@ -266,6 +313,40 @@ function TabButton({
       )}
       {dot && (
         <span className="absolute right-2 top-2 size-2 rounded-full bg-red-500" />
+      )}
+    </button>
+  );
+}
+
+function SubTab({
+  active,
+  onClick,
+  label,
+  count,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  count: number;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex-1 rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
+        active
+          ? "bg-brand-secondary text-white shadow-sm"
+          : "bg-gray-200 text-gray-700 active:bg-gray-300"
+      }`}
+    >
+      {label}
+      {count > 0 && (
+        <span
+          className={`ml-1.5 inline-flex min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-bold ${
+            active ? "bg-white/25 text-white" : "bg-white text-gray-700"
+          }`}
+        >
+          {count}
+        </span>
       )}
     </button>
   );

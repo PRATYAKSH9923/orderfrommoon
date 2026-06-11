@@ -36,9 +36,6 @@ export default async function OrderTrackingPage({
         <h1 className="mt-4 text-xl font-bold text-gray-900">
           Order {display} not found
         </h1>
-        <p className="mt-2 text-sm text-gray-500">
-          ऑर्डर नहीं मिला · ਆਰਡਰ ਨਹੀਂ ਮਿਲਿਆ
-        </p>
         <Link
           href="/consumer"
           className="mt-6 rounded-xl bg-brand px-5 py-3 font-semibold text-brand-contrast"

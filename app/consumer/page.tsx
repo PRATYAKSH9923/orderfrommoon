@@ -1,9 +1,8 @@
 import { getMenu, getRestaurantSettings } from "@/lib/queries";
+import { bannersFor } from "@/lib/banners";
 import { ConsumerMenu } from "@/components/consumer/ConsumerMenu";
 
 export const metadata = { title: "Menu" };
-
-// Always fetch fresh menu/settings on request.
 export const dynamic = "force-dynamic";
 
 export default async function ConsumerPage() {
@@ -27,5 +26,7 @@ export default async function ConsumerPage() {
     );
   }
 
-  return <ConsumerMenu menu={menu} settings={settings} />;
+  const banners = bannersFor(menu.map((c) => ({ id: c.id, name: c.name })));
+
+  return <ConsumerMenu menu={menu} banners={banners} settings={settings} />;
 }

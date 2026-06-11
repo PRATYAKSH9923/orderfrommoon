@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { getRestaurantSettings } from "@/lib/queries";
 import { BrandProvider } from "@/components/BrandProvider";
+import { LanguageProvider } from "@/components/LanguageProvider";
 import { ServiceWorkerRegistrar } from "@/components/ServiceWorkerRegistrar";
 import { publicEnv } from "@/lib/env";
 
@@ -63,7 +64,7 @@ export default async function RootLayout({
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <BrandProvider settings={settings} />
         <ServiceWorkerRegistrar />
-        {children}
+        <LanguageProvider>{children}</LanguageProvider>
       </body>
     </html>
   );

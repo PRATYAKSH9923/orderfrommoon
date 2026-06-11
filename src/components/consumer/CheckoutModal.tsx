@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useLang } from "@/components/LanguageProvider";
+import { useCustomer } from "@/store/customer";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
@@ -23,20 +25,21 @@ export function CheckoutModal({
   onClose,
   loading = false,
 }: CheckoutModalProps) {
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
+  const { t } = useLang();
+  const profile = useCustomer((s) => s.profile);
+  // Prefill from the remembered profile (saved after the first order).
+  const [name, setName] = useState(profile?.name ?? "");
+  const [phone, setPhone] = useState(profile?.phone ?? "");
   const [error, setError] = useState("");
 
   const handleSubmit = () => {
     setError("");
     if (!name.trim()) {
-      setError("Please enter your name · कृपया नाम दर्ज करें · ਨਾਮ ਦਰਜ ਕਰੋ");
+      setError(t("errName"));
       return;
     }
     if (phone.length < 10) {
-      setError(
-        "Enter a valid 10-digit number · सही फोन नंबर दर्ज करें · ਸਹੀ ਫੋਨ ਨੰਬਰ ਦਰਜ ਕਰੋ"
-      );
+      setError(t("errPhone"));
       return;
     }
     onSubmit({ name: name.trim(), phone });
@@ -46,20 +49,20 @@ export function CheckoutModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Checkout · चेकआउट · ਚੈੱਕਆਊਟ"
+      title={t("checkout")}
       dismissable={!loading}
       hideClose={loading}
     >
       <div className="space-y-4">
         <div>
           <label className="mb-1.5 block text-sm font-semibold text-gray-700">
-            Your Name · आपका नाम · ਤੁਹਾਡਾ ਨਾਮ
+            {t("yourName")}
           </label>
           <Input
             type="text"
             inputMode="text"
             autoComplete="name"
-            placeholder="Name / नाम / ਨਾਮ"
+            placeholder={t("namePlaceholder")}
             value={name}
             onChange={(e) => setName(e.target.value)}
             disabled={loading}
@@ -68,7 +71,7 @@ export function CheckoutModal({
 
         <div>
           <label className="mb-1.5 block text-sm font-semibold text-gray-700">
-            Mobile Number · मोबाइल नंबर · ਮੋਬਾਈਲ ਨੰਬਰ
+            {t("mobile")}
           </label>
           <Input
             type="tel"
@@ -82,13 +85,11 @@ export function CheckoutModal({
           />
         </div>
 
-        {error && (
-          <p className="text-sm font-semibold text-red-600">{error}</p>
-        )}
+        {error && <p className="text-sm font-semibold text-red-600">{error}</p>}
 
         <div className="rounded-xl bg-gray-100 p-4">
           <div className="flex items-center justify-between text-lg font-bold">
-            <span>Total · कुल · ਕੁੱਲ</span>
+            <span>{t("total")}</span>
             <span className="text-brand-secondary">
               {formatPrice(totalAmount, currency)}
             </span>
@@ -96,9 +97,7 @@ export function CheckoutModal({
         </div>
 
         <Button size="lg" fullWidth onClick={handleSubmit} loading={loading}>
-          {loading
-            ? "Placing… · प्रोसेसिंग… · ਪ੍ਰੋਸੈਸਿੰਗ…"
-            : "Place Order · ऑर्डर प्लेस करें · ਆਰਡਰ ਪਲੇਸ ਕਰੋ"}
+          {t("placeOrder")}
         </Button>
       </div>
     </Modal>

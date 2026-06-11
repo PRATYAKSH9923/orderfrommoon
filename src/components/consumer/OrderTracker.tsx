@@ -2,27 +2,19 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Check, Clock, ChefHat, PartyPopper, Home } from "lucide-react";
+import { Check, Clock, ChefHat, PartyPopper, ChevronLeft } from "lucide-react";
 import { OrderStatus, OrderWithItems } from "@/types";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { formatOrderTime, formatPrice, cn } from "@/lib/utils";
+import { useLang } from "@/components/LanguageProvider";
+import type { StringKey } from "@/lib/i18n";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 
-const STEPS: {
-  status: OrderStatus;
-  label: string;
-  sub: string;
-  icon: typeof Check;
-}[] = [
-  { status: "NEW", label: "New", sub: "नया · ਨਵਾਂ", icon: Check },
-  { status: "ACCEPTED", label: "Accepted", sub: "स्वीकृत · ਸਵੀਕਾਰ", icon: Clock },
-  {
-    status: "PREPARING",
-    label: "Preparing",
-    sub: "तैयार हो रहा है · ਤਿਆਰ",
-    icon: ChefHat,
-  },
-  { status: "DONE", label: "Done", sub: "तैयार · ਤਿਆਰ", icon: PartyPopper },
+const STEPS: { status: OrderStatus; icon: typeof Check }[] = [
+  { status: "NEW", icon: Check },
+  { status: "ACCEPTED", icon: Clock },
+  { status: "PREPARING", icon: ChefHat },
+  { status: "DONE", icon: PartyPopper },
 ];
 
 const ORDER: OrderStatus[] = ["NEW", "ACCEPTED", "PREPARING", "DONE"];
@@ -34,11 +26,11 @@ export function OrderTracker({
   initialOrder: OrderWithItems;
   currency: string;
 }) {
+  const { t } = useLang();
   const [order, setOrder] = useState<OrderWithItems>(initialOrder);
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
-    // Subscribe to updates for THIS order only.
     const channel = supabase
       .channel(`order-${order.id}`)
       .on(
@@ -65,21 +57,21 @@ export function OrderTracker({
 
   return (
     <div className="flex min-h-dvh flex-col bg-gray-50">
-      <header className="sticky top-0 z-20 flex items-center gap-3 bg-brand px-4 py-3 text-brand-contrast shadow-md safe-top">
-        <Link href="/" aria-label="Home" className="p-1 active:bg-white/20 rounded-full">
-          <Home className="size-6" />
+      <header className="safe-top sticky top-0 z-20 flex items-center gap-3 bg-brand px-4 py-3 text-brand-contrast shadow-md">
+        <Link
+          href="/my-orders"
+          aria-label={t("myOrders")}
+          className="rounded-full p-1 active:bg-white/20"
+        >
+          <ChevronLeft className="size-6" />
         </Link>
-        <div>
-          <h1 className="text-lg font-bold leading-tight">Track Order</h1>
-          <p className="text-xs text-white/90">ऑर्डर ट्रैक · ਆਰਡਰ ਟਰੈਕ</p>
-        </div>
+        <h1 className="text-lg font-bold">{t("track")}</h1>
       </header>
 
       <main className="flex-1 space-y-4 p-4">
-        {/* Order number + live badge */}
         <div className="rounded-2xl bg-white p-5 text-center shadow-sm">
           <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
-            Order Number
+            {t("orderNumber")}
           </p>
           <p className="text-4xl font-extrabold text-brand-secondary">
             {order.display_order_number}
@@ -91,7 +83,7 @@ export function OrderTracker({
                 <span className="absolute inline-flex size-full animate-ping rounded-full bg-green-400 opacity-75" />
                 <span className="relative inline-flex size-2 rounded-full bg-green-500" />
               </span>
-              Live
+              {t("live")}
             </span>
           </div>
           <p className="mt-2 text-sm text-gray-500">
@@ -99,7 +91,6 @@ export function OrderTracker({
           </p>
         </div>
 
-        {/* Status timeline */}
         <div className="rounded-2xl bg-white p-5 shadow-sm">
           <ol className="space-y-1">
             {STEPS.map((step, i) => {
@@ -130,8 +121,9 @@ export function OrderTracker({
                     )}
                   </div>
                   <div className={cn("pb-2", !done && "opacity-50")}>
-                    <p className="font-bold text-gray-900">{step.label}</p>
-                    <p className="text-xs text-gray-500">{step.sub}</p>
+                    <p className="font-bold text-gray-900">
+                      {t(`status_${step.status}` as StringKey)}
+                    </p>
                   </div>
                 </li>
               );
@@ -139,9 +131,8 @@ export function OrderTracker({
           </ol>
         </div>
 
-        {/* Items */}
         <div className="rounded-2xl bg-white p-5 shadow-sm">
-          <h2 className="mb-2 font-bold text-gray-900">Your Items</h2>
+          <h2 className="mb-2 font-bold text-gray-900">{t("yourItems")}</h2>
           <div className="space-y-1.5 text-sm">
             {order.order_items?.map((item) => (
               <div key={item.id} className="flex justify-between text-gray-700">
@@ -156,7 +147,7 @@ export function OrderTracker({
               </div>
             ))}
             <div className="mt-2 flex justify-between border-t border-gray-100 pt-2 font-bold">
-              <span>Total · कुल · ਕੁੱਲ</span>
+              <span>{t("total")}</span>
               <span className="text-brand-secondary">
                 {formatPrice(order.total_amount, currency)}
               </span>
@@ -165,9 +156,7 @@ export function OrderTracker({
         </div>
 
         <p className="pb-6 text-center text-xs text-gray-400">
-          This page updates automatically — no need to refresh.
-          <br />
-          यह पेज अपने आप अपडेट होता है · ਇਹ ਪੇਜ ਆਪਣੇ ਆਪ ਅੱਪਡੇਟ ਹੁੰਦਾ ਹੈ
+          {t("autoUpdate")}
         </p>
       </main>
     </div>

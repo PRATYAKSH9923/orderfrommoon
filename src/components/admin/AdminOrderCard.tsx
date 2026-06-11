@@ -5,6 +5,8 @@ import { OrderStatus, OrderWithItems } from "@/types";
 import { Button } from "@/components/ui/Button";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { formatOrderTime, formatPrice } from "@/lib/utils";
+import { useLang } from "@/components/LanguageProvider";
+import type { StringKey } from "@/lib/i18n";
 
 interface AdminOrderCardProps {
   order: OrderWithItems;
@@ -13,17 +15,17 @@ interface AdminOrderCardProps {
   busy?: boolean;
 }
 
-/** The next status + button label for the primary action on a card. */
+/** The next status + button label key for the primary action on a card. */
 function nextAction(
   status: OrderStatus
-): { next: OrderStatus; label: string } | null {
+): { next: OrderStatus; labelKey: StringKey } | null {
   switch (status) {
     case "NEW":
-      return { next: "ACCEPTED", label: "Accept · स्वीकारें · ਸਵੀਕਾਰ" };
+      return { next: "ACCEPTED", labelKey: "accept" };
     case "ACCEPTED":
-      return { next: "PREPARING", label: "Move to Preparing · तैयारी · ਤਿਆਰੀ" };
+      return { next: "PREPARING", labelKey: "moveToPreparing" };
     case "PREPARING":
-      return { next: "DONE", label: "Move to Done · पूर्ण · ਪੂਰਾ" };
+      return { next: "DONE", labelKey: "moveToDone" };
     default:
       return null;
   }
@@ -35,6 +37,7 @@ export function AdminOrderCard({
   onAdvance,
   busy = false,
 }: AdminOrderCardProps) {
+  const { t } = useLang();
   const action = nextAction(order.status);
 
   return (
@@ -94,7 +97,7 @@ export function AdminOrderCard({
           loading={busy}
           onClick={() => onAdvance(order.id, action.next)}
         >
-          {action.label}
+          {t(action.labelKey)}
         </Button>
       )}
     </div>

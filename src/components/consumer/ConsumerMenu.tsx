@@ -4,18 +4,22 @@ import { useMemo, useRef, useState } from "react";
 import { ShoppingCart } from "lucide-react";
 import { CategoryWithItems, CartItem, RestaurantSettings } from "@/types";
 import { useCart } from "@/store/cart";
+import { useCustomer } from "@/store/customer";
+import { useLang } from "@/components/LanguageProvider";
 import { formatPrice } from "@/lib/utils";
 import { publicEnv } from "@/lib/env";
 import { buildWhatsAppMessage, buildWhatsAppUrl } from "@/lib/whatsapp";
 import { ConsumerHeader } from "./ConsumerHeader";
-import { CategoryNav } from "./CategoryNav";
-import { MenuItemCard } from "./MenuItemCard";
+import { CategorySection } from "./CategorySection";
 import { CartSheet } from "./CartSheet";
 import { CheckoutModal } from "./CheckoutModal";
+import { OrderReviewModal } from "./OrderReviewModal";
 import { OrderConfirmationModal } from "./OrderConfirmationModal";
+import { MenuJumpButton } from "./MenuJumpButton";
 
 interface ConsumerMenuProps {
   menu: CategoryWithItems[];
+  banners: Record<string, string[]>;
   settings: RestaurantSettings | null;
 }
 
@@ -27,7 +31,11 @@ type ConfirmedOrder = {
   customerPhone: string;
 };
 
-export function ConsumerMenu({ menu, settings }: ConsumerMenuProps) {
+// Checkout steps: details → review → (placed = confirmed set)
+type Step = "none" | "details" | "review";
+
+export function ConsumerMenu({ menu, banners, settings }: ConsumerMenuProps) {
+  const { t } = useLang();
   const currency = settings?.currency ?? "₹";
   const restaurantName = settings?.name ?? publicEnv.restaurantName;
   const whatsappNumber =
@@ -37,20 +45,23 @@ export function ConsumerMenu({ menu, settings }: ConsumerMenuProps) {
   const count = useCart((s) => s.count());
   const total = useCart((s) => s.total());
   const clear = useCart((s) => s.clear);
+  const saveCustomer = useCustomer((s) => s.save);
 
   const [query, setQuery] = useState("");
-  const [activeCategory, setActiveCategory] = useState<string | null>(
-    menu[0]?.id ?? null
-  );
+  // All sections open by default; track which the user has collapsed.
+  const [closedIds, setClosedIds] = useState<Set<string>>(new Set());
   const [cartOpen, setCartOpen] = useState(false);
-  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [step, setStep] = useState<Step>("none");
+  const [details, setDetails] = useState<{ name: string; phone: string } | null>(
+    null
+  );
   const [submitting, setSubmitting] = useState(false);
   const [confirmed, setConfirmed] = useState<ConfirmedOrder | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
+  const searching = query.trim().length > 0;
 
-  // Filter by search across all categories.
   const filteredMenu = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return menu;
@@ -66,15 +77,40 @@ export function ConsumerMenu({ menu, settings }: ConsumerMenuProps) {
       .filter((c) => c.items.length > 0);
   }, [menu, query]);
 
-  const scrollToCategory = (id: string) => {
-    setActiveCategory(id);
-    sectionRefs.current[id]?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
+  const toggleSection = (id: string) => {
+    setClosedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
     });
   };
 
-  const handleCheckout = async (data: { name: string; phone: string }) => {
+  const jumpTo = (id: string) => {
+    // Ensure the target section is open, then scroll to it.
+    setClosedIds((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+    setTimeout(() => {
+      sectionRefs.current[id]?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 60);
+  };
+
+  // Step 1 → 2: collect details, advance to review (does NOT place the order).
+  const handleDetails = (data: { name: string; phone: string }) => {
+    setDetails(data);
+    setStep("review");
+  };
+
+  // Step 2 → place: only now is the order actually saved. The customer may have
+  // corrected their name/phone on the review screen, so use those values.
+  const handleConfirm = async (edited: { name: string; phone: string }) => {
     setSubmitting(true);
     setError(null);
     try {
@@ -82,8 +118,8 @@ export function ConsumerMenu({ menu, settings }: ConsumerMenuProps) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          customer_name: data.name,
-          customer_phone: data.phone,
+          customer_name: edited.name,
+          customer_phone: edited.phone,
           items: items.map((i) => ({
             menu_item_id: i.menuItemId,
             name: i.name,
@@ -95,25 +131,25 @@ export function ConsumerMenu({ menu, settings }: ConsumerMenuProps) {
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body.error ?? "Failed to place order");
+        throw new Error(body.error ?? t("somethingWrong"));
       }
       const { order } = await res.json();
 
-      // Snapshot the cart for the confirmation modal, then clear it.
+      // Remember the (corrected) customer for next time + history lookup.
+      saveCustomer({ name: edited.name, phone: edited.phone });
+
       setConfirmed({
         orderNumber: order.display_order_number,
         items: [...items],
         total,
-        customerName: data.name,
-        customerPhone: data.phone,
+        customerName: edited.name,
+        customerPhone: edited.phone,
       });
       clear();
-      setCheckoutOpen(false);
+      setStep("none");
       setCartOpen(false);
     } catch (e) {
-      setError(
-        e instanceof Error ? e.message : "Something went wrong. Please retry."
-      );
+      setError(e instanceof Error ? e.message : t("somethingWrong"));
     } finally {
       setSubmitting(false);
     }
@@ -143,59 +179,53 @@ export function ConsumerMenu({ menu, settings }: ConsumerMenuProps) {
         onQueryChange={setQuery}
       />
 
-      {!query && filteredMenu.length > 1 && (
-        <CategoryNav
-          categories={filteredMenu.map((c) => ({ id: c.id, name: c.name }))}
-          activeId={activeCategory}
-          onSelect={scrollToCategory}
-        />
-      )}
-
-      <main className="flex-1 px-4 pb-28 pt-2">
+      <main className="flex-1 space-y-3 px-3 pb-28 pt-3">
         {filteredMenu.length === 0 ? (
           <p className="py-16 text-center text-gray-500">
-            No items found for “{query}”.
-            <br />
-            कोई आइटम नहीं मिला · ਕੋਈ ਆਈਟਮ ਨਹੀਂ ਮਿਲੀ
+            {t("noResults")}
+            {query ? ` — “${query}”` : ""}
           </p>
         ) : (
           filteredMenu.map((category) => (
-            <section
+            <div
               key={category.id}
               ref={(el) => {
                 sectionRefs.current[category.id] = el;
               }}
-              className="scroll-mt-36 pt-4"
+              className="scroll-mt-32"
             >
-              <div className="mb-1 flex items-baseline justify-between">
-                <h2 className="text-lg font-extrabold text-gray-900">
-                  {category.name}
-                </h2>
-                <span className="text-xs text-gray-400">
-                  {category.items.length} items
-                </span>
-              </div>
-              {category.description && (
-                <p className="mb-1 text-xs text-gray-400">
-                  {category.description}
-                </p>
-              )}
-              <div className="divide-y divide-gray-100 rounded-2xl bg-white px-4 shadow-sm">
-                {category.items.map((item) => (
-                  <MenuItemCard key={item.id} item={item} currency={currency} />
-                ))}
-              </div>
-            </section>
+              <CategorySection
+                category={category}
+                banners={banners[category.id] ?? []}
+                currency={currency}
+                open={!closedIds.has(category.id)}
+                forcedOpen={searching}
+                onToggle={() => toggleSection(category.id)}
+              />
+            </div>
           ))
         )}
       </main>
+
+      {/* Floating MENU jump button (hidden while searching) */}
+      {!searching && filteredMenu.length > 0 && !confirmed && (
+        <MenuJumpButton
+          categories={filteredMenu.map((c) => ({
+            id: c.id,
+            name: c.name,
+            count: c.items.length,
+          }))}
+          onJump={jumpTo}
+          raised={count > 0}
+        />
+      )}
 
       {/* Sticky cart bar */}
       {count > 0 && !confirmed && (
         <div className="fixed inset-x-0 bottom-0 z-30 p-3 safe-bottom">
           <button
             onClick={() => setCartOpen(true)}
-            className="mx-auto flex w-full max-w-md items-center justify-between rounded-2xl bg-brand px-5 py-3.5 text-brand-contrast shadow-lg active:scale-[0.99] transition-active"
+            className="mx-auto flex w-full max-w-md items-center justify-between rounded-2xl bg-brand px-5 py-3.5 pr-20 text-brand-contrast shadow-xl transition-active active:scale-[0.99]"
           >
             <span className="flex items-center gap-2 font-bold">
               <span className="relative">
@@ -204,7 +234,7 @@ export function ConsumerMenu({ menu, settings }: ConsumerMenuProps) {
                   {count}
                 </span>
               </span>
-              View Cart
+              {t("viewCart")}
             </span>
             <span className="font-extrabold">{formatPrice(total, currency)}</span>
           </button>
@@ -216,19 +246,33 @@ export function ConsumerMenu({ menu, settings }: ConsumerMenuProps) {
         onClose={() => setCartOpen(false)}
         onCheckout={() => {
           setCartOpen(false);
-          setCheckoutOpen(true);
+          setStep("details");
         }}
         currency={currency}
       />
 
       <CheckoutModal
-        isOpen={checkoutOpen}
+        isOpen={step === "details"}
         totalAmount={total}
         currency={currency}
-        loading={submitting}
-        onClose={() => !submitting && setCheckoutOpen(false)}
-        onSubmit={handleCheckout}
+        onClose={() => setStep("none")}
+        onSubmit={handleDetails}
       />
+
+      {details && (
+        <OrderReviewModal
+          key={`${details.name}|${details.phone}`}
+          isOpen={step === "review"}
+          items={items}
+          total={total}
+          currency={currency}
+          customerName={details.name}
+          customerPhone={details.phone}
+          loading={submitting}
+          onConfirm={handleConfirm}
+          onBack={() => !submitting && setStep("details")}
+        />
+      )}
 
       {confirmed && (
         <OrderConfirmationModal

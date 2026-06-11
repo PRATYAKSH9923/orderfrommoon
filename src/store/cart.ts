@@ -19,6 +19,16 @@ interface CartState {
   count: () => number;
   total: () => number;
   quantityOf: (menuItemId: string) => number;
+  // cake (single/double-layer) helpers
+  cakeState: (menuItemId: string, secondaryLabel: string) => {
+    total: number;
+    double: number;
+  };
+  setCake: (
+    item: MenuItem,
+    total: number,
+    double: number
+  ) => void;
 }
 
 /** Build a stable line id from a menu item + optional variant. */
@@ -99,6 +109,54 @@ export const useCart = create<CartState>()(
         get()
           .items.filter((i) => i.menuItemId === menuItemId)
           .reduce((sum, i) => sum + i.quantity, 0),
+
+      cakeState: (menuItemId, secondaryLabel) => {
+        const baseId = menuItemId;
+        const doubleId = `${menuItemId}::${secondaryLabel}`;
+        const base =
+          get().items.find((i) => i.id === baseId)?.quantity ?? 0;
+        const dbl =
+          get().items.find((i) => i.id === doubleId)?.quantity ?? 0;
+        return { total: base + dbl, double: dbl };
+      },
+
+      setCake: (item, total, double) => {
+        // Enforce invariants: double can never exceed total; both >= 0.
+        const t = Math.max(0, Math.floor(total));
+        const d = Math.min(Math.max(0, Math.floor(double)), t);
+        const single = t - d;
+
+        const baseId = item.id;
+        const doubleId = `${item.id}::${item.secondary_label}`;
+
+        set((state) => {
+          // Drop existing base/double lines for this item, then re-add.
+          const others = state.items.filter(
+            (i) => i.id !== baseId && i.id !== doubleId
+          );
+          const next: CartItem[] = [...others];
+          if (single > 0) {
+            next.push({
+              id: baseId,
+              menuItemId: item.id,
+              name: item.name,
+              price: item.price,
+              quantity: single,
+            });
+          }
+          if (d > 0 && item.secondary_price != null && item.secondary_label) {
+            next.push({
+              id: doubleId,
+              menuItemId: item.id,
+              name: item.name,
+              price: item.secondary_price,
+              quantity: d,
+              variantLabel: item.secondary_label,
+            });
+          }
+          return { items: next };
+        });
+      },
     }),
     {
       name: "bwx-cart",
